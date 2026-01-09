@@ -135,8 +135,11 @@ public class PlaySpace : MonoBehaviour
     }
     
     // I wish i could make the player object references read only but unity won't let me 
-    public GameObject[] GetPlayerObjectReferences() { return _PlayerObjectReferences; }
-    public int GetPlayerCount() { return _Players; }
+    public  GameObject[] GetPlayerObjectReferences() { return _PlayerObjectReferences; }
+    
+   
+    /// <returns>the number of players in the game (NOT ZERO INDEXED)</returns>
+    public int GetPlayerCount() { return _Players; } 
     
     private void SetupPlayerPositions()
     {
@@ -190,7 +193,8 @@ public class PlaySpace : MonoBehaviour
     
     
     // Start is called before the first frame update
-    void Start()
+
+    private void Awake()
     {
         if (_GameSpace == null ) 
             _CenterSpace = GetComponent<Transform>().position;
@@ -198,6 +202,11 @@ public class PlaySpace : MonoBehaviour
             _CenterSpace = _GameSpace.GetComponent<Transform>().position;
         
         SetupPlayerPositions();
+    }
+
+    void Start()
+    {
+      
     }
 
     // Update is called once per frame

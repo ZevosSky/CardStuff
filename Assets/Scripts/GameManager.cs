@@ -10,6 +10,35 @@ using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEditor;
+using UnityEngine.Playables;
+
+public class PlayerState {
+    public List<GameObject> hand;
+    public PlayerCurve curve;
+    
+    public PlayerState()
+    {
+        hand = new List<GameObject>();
+        curve = null;
+    }
+    
+    public PlayerState(List<GameObject> hand, PlayerCurve curve)
+    {
+        this.hand = hand;
+        this.curve = curve;
+    }
+
+    public PlayerState(PlayerCurve c)
+    {
+        this.curve = c;
+    }
+    
+    // I technically could have a solver for this since it would
+    // just be copying pasting rumikub from data strucutures...
+    // this is funny to me but outside of need for this project 
+}
+
+
 
 //==| Rules of Rummy |==================================================================================================|
 /*
@@ -39,7 +68,7 @@ public class GameManager : MonoBehaviour
     [Header("Game Settings")]
     [SerializeField] // NOTE: This can not be changed via the inspector in play mode
     [Range(2, 6)]    // We could have more players but if we do I'm going to have to make it 2+ decks 
-    private int playerCount = 4;               // number of players at the table
+    private int playerCount = 4;               // number of players at the table 
     
     [SerializeField]
     [Range(1, 3)]
@@ -60,7 +89,7 @@ public class GameManager : MonoBehaviour
     private List<GameObject> WholeDeck = new List<GameObject>();  // deck of ALL cards
     private List<GameObject> DrawDeck = new List<GameObject>();   // deck of cards to draw from
     private List<GameObject> SwapDeck = new List<GameObject>();   // deck of cards that have been discarded / swapped
-    private List<GameObject> players = new List<GameObject>();    // players at the table
+    // private List<PlayerState> playerStates = new List<PlayState>();    // players at the table
     
     [SerializeField] private PlaySpace playSpace; // reference to the play space script in the scene (in charge of player positions)
     
@@ -73,21 +102,35 @@ public class GameManager : MonoBehaviour
     [SerializeField]
     [Tooltip("Spacing between cards in the swap deck hand (x, y, -z)")]
     private Vector3 DiscardDeckSpacing = new Vector3(0.00f, 0.001f, -0.05f); // spacing between cards in the discard deck
-
+    
+    //==| Game State |==================================================================================================|
+    [DoNotSerialize] public int turn;
     [DoNotSerialize] public bool IsPaused;
     [DoNotSerialize] public bool AllowInput;
     //==| Unity Functions |=============================================================================================|
-
+    bool GetIsPaused() { return IsPaused; }
+    
     #region UnityFunctions
+    IEnumerator DelayedStart()
+    {
+        yield return new WaitForSeconds(1.1f);  // Small delay
+    
+        // Now try to access playSpace
+        var playerPositions = playSpace.GetPlayerObjectReferences();
+        playerCount = playSpace.GetPlayerCount();
+    
+        // Continue with your card dealing code
+    }
     void Start()
     {
         #region Examples_I_Made
-        /* 
-        // Card Instantiation Example 
+
+        /*
+        // Card Instantiation Example
         GameObject newCard = Instantiate(cardPrefab);
         Card newCardComponent = newCard.GetComponentInChildren<Card>();
         newCardComponent.SetCard(Card.Suit.Hearts, Card.Rank.Ace, 0);
-        
+
         Vector3 targetPosition = new Vector3(5f, 2f, 0f);
         Vector3 targetPosition1 = new Vector3(5f, 0f, 0f);
         */
@@ -101,29 +144,29 @@ public class GameManager : MonoBehaviour
                 decayRate: 6f,         // Higher = faster decay of bounces
                 oscillationSpeed: 6f,  // Higher = faster bounces
                 frequency: 4f          // Higher = more bounces
-            ),  
+            ),
             blocking: true                                                   // wait for completion
                                                                              // before next action
-        ); 
+        );
         */
         /*  Example of multiple actions in sequence
         TranslateAction moveCard = new TranslateAction(
             newCard,                                                         // target object
             targetPosition,                                                  // where to move
             duration: 2.0f,                                                  // how long it takes
-            easeFunction: Easing.EaseOutElastic,                             // easing function 
-            delay: 0.0f,                                                     // delay before starting   
+            easeFunction: Easing.EaseOutElastic,                             // easing function
+            delay: 0.0f,                                                     // delay before starting
             blocking: false                                                   // wait for completion
         );
         TranslateAction moveCard2 = new TranslateAction(
             newCard,                                                         // target object
             targetPosition1,                                                  // where to move
             duration: 2.0f,                                                  // how long it takes
-            easeFunction: Easing.EaseOutElastic,                             // easing function 
-            delay: 5.0f,                                                     // delay before starting   
+            easeFunction: Easing.EaseOutElastic,                             // easing function
+            delay: 5.0f,                                                     // delay before starting
             blocking: false                                                   // wait for completion
         );
-        
+
         RotateAction spinCard = new RotateAction(
             newCard,                                                          // target object
             new Vector3(0, 0, 180),                                           // where to rotate
@@ -131,7 +174,7 @@ public class GameManager : MonoBehaviour
             easeFunction: Easing.EaseOutElastic,                              // easing function
             blocking: false                                                    // wait for completion
         );
-        
+
         RotateAction flipCard = new RotateAction(
             newCard,                                                          // target object
             new Vector3(180, 0, 0),                                           // where to rotate
@@ -139,99 +182,134 @@ public class GameManager : MonoBehaviour
             easeFunction: Easing.Linear,                                      // easing function
             blocking: false                                                    // wait for completion
         );
-    
+
         var simultaneous = new SimultaneousTransformActions(newCard);
         simultaneous.AddAction(moveCard);
         simultaneous.AddAction(spinCard);
         simultaneous.AddAction(flipCard);
-        
+
         actionManager.AddAction(simultaneous);
         actionManager.AddAction(moveCard2);
         */
 
         #endregion
         
-        // * * * Game Setup * * * \\
         
+        // * * * Game Setup * * * \\
+
         // Spawn a deck of cards, debug show all the cards in a spread
         // Step 1: Spawn and prepare deck
         SpawnDeck();
         LayerDeck();
         FlipAllCards();
-    
+
         // Step 2: Add a blocking action to ensure Step 1 is complete
         actionManager.AddAction(new BlockAction(0.1f));
-    
+
         // Step 3: Add cards to draw deck with animations
         AddCardsToDrawDeck(WholeDeck);
-        
+
         // Step 4: Shuffle deck with animations
         ShuffleDeck(DrawDeck, DrawDeckLocationReference.transform, DrawDeckSpacing);
         
-        actionManager.AddAction(new BlockAction(1.0f));
-
+        // Step 5: Deal cards to players
+        
         var playerPositions = playSpace.GetPlayerObjectReferences();
         playerCount = playSpace.GetPlayerCount();
-       
         
-         // Step 5: Deal cards to players
-        for (int i = 0; i < playerCount; ++i)
-        {
+        
+        for (int i = 0; i < playerCount; ++i) {
             Debug.Log($"Player {i} rotation: {playerPositions[i].transform.eulerAngles}");
             PlayerCurve playerCurve = new PlayerCurve(playerPositions[i].transform, 3, 1, 0.01f);
-            //playerCurve.DebugDrawCurve(DebugSphere, 5, playerPositions[i].transform);
-            
+            //playerStates.Add(new PlayerState(playerCurve));
             (Vector3, float)[] handPositions = playerCurve.CalculateCardPositions(5);
-            
+
             for (int j = 0; j < 5; ++j)
             {
                 GameObject card = DrawDeck[DrawDeck.Count - 1];
                 DrawDeck.RemoveAt(DrawDeck.Count - 1);
                 var cc = card.GetComponentInChildren<Card>();
-                
+
                 //Debug.Log($"Player {i} transform position: {playerPositions[i].transform.position}, rotation: {playerPositions[i].transform.rotation.eulerAngles}, scale: {playerPositions[i].transform.localScale}");
                 // Apply Z rotation while preserving X rotation (flipped state)
-                if (i == 0) cc.faceUp = false; else cc.faceUp = true;
+                if (i == 0) cc.faceUp = false;
+                else cc.faceUp = true;
                 AnimateCardToPosition(card, handPositions[j].Item1, handPositions[j].Item2, (i == 0) ? false : true);
             }
-        }
+        } // end for loop
         
         
-        /*
-        // Test moveing cards to a hand
-        PlayerCurve playerCurve2 = new PlayerCurve(handTest.transform, 3, 1, 0.01f);
-        playerCurve2.DebugDrawCurve(DebugSphere, 5,handTest.transform);
-
-        Debug.Log($"HandTest transform position: {handTest.transform.position}, rotation: {handTest.transform.rotation.eulerAngles}, scale: {handTest.transform.localScale}");
-        (Vector3, float)[] handPositions2 = playerCurve2.CalculateCardPositions(5);
-
-        for (int i = 0; i < 5; ++i)
-        {
-            GameObject card = DrawDeck[DrawDeck.Count - 1];
-            DrawDeck.RemoveAt(DrawDeck.Count - 1);
-
-            // Apply Z rotation while preserving X rotation (flipped state)
-            AnimateCardToPosition(card, handPositions2[i].Item1, handPositions2[i].Item2, false);
-        }
-        */
     }
-    
+
     // temp testing hand debug game objects, remove in final build 
     [SerializeField] private GameObject DebugSphere;
-    
+    [SerializeField] private bool AutoPlay;
     
     void Update()
     {
-        // Card Size 
-        if (cardSizeDirty)
+        // TODO: add pause menu functionality 
+        //  * Player needs to be able to pause the game
+        //  * pauses the ActionManger of game actions 
+        //  * spins up a new temp action list for pause menu actions 
+        //  * size & player count have to be configureable in there 
+        
+        // if there are no cards in the draw deck, end the game
+        if (DrawDeck.Count > 0)
         {
-            // Update card size
-            cardPrefab.transform.localScale = new Vector3(CardSize, CardSize, CardSize);
-            cardSizeDirty = false;
+            // calculate who won the game
+            // display a message
+            // tell the player to reset from the pause menu 
         }
         
-        
-        
+        if (turn == 0 && !AutoPlay) // player turn 
+        {
+            // Wait for player action 
+            
+            // phase 1...
+            
+            // phase 2...
+            
+        }
+        else // computer turn, play randomly 
+        {
+            // get the "player" we are playing as
+            var playerPositions = playSpace.GetPlayerObjectReferences();
+            GameObject player = playerPositions[turn];
+            PlayerCurve playerCurve = new PlayerCurve(player.transform, 3, 1, 0.01f);
+            
+            // phase 1: draw a card from ether the draw deck or the swap deck
+            
+            
+            
+            switch (Random.Range(0, 2)) // 0 or 1
+            {
+                case 0: // draw from draw deck
+                    if (DrawDeck.Count > 0)
+                    {
+                        GameObject card = DrawDeck[DrawDeck.Count - 1];
+                        DrawDeck.RemoveAt(DrawDeck.Count - 1);
+                        AddCardToSwapDeck(card);
+                    }
+                    break;
+                case 1: // draw from swap deck
+                    if (SwapDeck.Count > 0)
+                    {
+                        GameObject card = SwapDeck[SwapDeck.Count - 1];
+                        SwapDeck.RemoveAt(SwapDeck.Count - 1);
+                        AddCardToSwapDeck(card);
+                    }
+                    break;
+                
+            }
+            
+            
+
+
+            turn = (turn + 1) % (playerCount - 1); // increment turn
+        }
+
+
+
     }
     #endregion // UnityFunctions
     
@@ -607,6 +685,19 @@ public class GameManager : MonoBehaviour
     }
     
     #endregion
+    
+    #region EnableDisableFunctions
+
+    void RenableInputAfterActions() 
+    {
+        CallBackBlockAction enableInputAfterActions = new CallBackBlockAction(
+            0.1f, () => { AllowInput = true; }, false);
+        actionManager.AddAction(enableInputAfterActions);
+    }
+    
+    
+    #endregion
+    
 }
 
 #region HelperClasses_and_Structs
