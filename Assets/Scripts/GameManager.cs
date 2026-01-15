@@ -12,31 +12,7 @@ using UnityEngine;
 using UnityEditor;
 using UnityEngine.Playables;
 
-public class PlayerState {
-    public List<GameObject> hand;
-    public PlayerCurve curve;
-    
-    public PlayerState()
-    {
-        hand = new List<GameObject>();
-        curve = null;
-    }
-    
-    public PlayerState(List<GameObject> hand, PlayerCurve curve)
-    {
-        this.hand = hand;
-        this.curve = curve;
-    }
 
-    public PlayerState(PlayerCurve c)
-    {
-        this.curve = c;
-    }
-    
-    // I technically could have a solver for this since it would
-    // just be copying pasting rumikub from data strucutures...
-    // this is funny to me but outside of need for this project 
-}
 
 
 
@@ -194,7 +170,6 @@ public class GameManager : MonoBehaviour
 
         #endregion
         
-        
         // * * * Game Setup * * * \\
 
         // Spawn a deck of cards, debug show all the cards in a spread
@@ -238,6 +213,11 @@ public class GameManager : MonoBehaviour
             }
         } // end for loop
         
+        // register all cards to action manager
+        for (int i = 0; i < WholeDeck.Count; ++i)
+        {
+            RegisterCardToActionManager(WholeDeck[i]);
+        }
         
     }
 
@@ -253,13 +233,11 @@ public class GameManager : MonoBehaviour
         //  * spins up a new temp action list for pause menu actions 
         //  * size & player count have to be configureable in there 
         
-        // if there are no cards in the draw deck, end the game
-        if (DrawDeck.Count > 0)
-        {
-            // calculate who won the game
-            // display a message
-            // tell the player to reset from the pause menu 
-        }
+        
+        EndOfGameCheck(); // check if the game should end & what to do if it does
+
+        
+        
         
         if (turn == 0 && !AutoPlay) // player turn 
         {
@@ -323,6 +301,7 @@ public class GameManager : MonoBehaviour
         {
             WholeDeck.Add(Instantiate(cardPrefab));
             Card current = WholeDeck[i].GetComponentInChildren<Card>();
+            current.actionManager = actionManager;
             current.SetCard((Card.Suit)(i % 4), (Card.Rank)((i % 13) ), 0);
             // Debug.Log("Card: " + current.suit + " " + current.rank + "Faceup? " + current.faceUp);
         }
@@ -515,7 +494,7 @@ public class GameManager : MonoBehaviour
             WholeDeck[i].transform.position = new Vector3(0.003f * i, 0.003f * i, -0.05f * i);
         }
     }
-    
+    // overload with custom position and offsets
     void LayerDeck(Vector3 position, List<GameObject> effectedCards, float xOffset, float yOffset)
     {
         for (int i = 0; i < effectedCards.Count; ++i)
@@ -698,7 +677,36 @@ public class GameManager : MonoBehaviour
     
     #endregion
     
-}
+    void EndOfGameCheck()
+    {
+        if (DrawDeck.Count == 0)
+        {
+            Debug.Log("Game Over: Draw Deck is empty!");
+            // Additional end-of-game logic can be added here
+        }
+    }
+    
+    void RegisterCardToActionManager(GameObject card)
+    {
+        Card cardComponent = card.GetComponentInChildren<Card>();
+        if (cardComponent != null)
+        {
+            cardComponent.actionManager = actionManager;
+        }
+        else
+        {
+            Debug.LogError("RegisterCardToActionManager: Card component not found on the provided GameObject.");
+        }
+    }
+    
+    
+    
+    
+} // end GameManager class
+
+
+
+
 
 #region HelperClasses_and_Structs
 

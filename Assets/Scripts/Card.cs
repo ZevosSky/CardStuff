@@ -12,12 +12,14 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine.Serialization;
+using UnityEngine.UIElements;
 
 
 public class Card : MonoBehaviour
 {
     [SerializeField] private SpriteRenderer frontRenderer;
     [SerializeField] private SpriteRenderer backRenderer;
+    [SerializeField] private BoxCollider hoverCollider; 
     
     // Enums for card properties
     public enum Suit { Hearts, Diamonds, Clubs, Spades }
@@ -34,6 +36,9 @@ public class Card : MonoBehaviour
     public Rank rank;
     public int backStyle; // 0-3 for different back designs
     
+    [HideInInspector] public ActionManager actionManager; // reference to action manager in play space 
+    [HideInInspector] public bool isHoverAble; // control if hover does anything
+    [HideInInspector] public bool isHovered; 
     
     
     // Get the SpriteRenderers for the front and back of the card
@@ -46,19 +51,69 @@ public class Card : MonoBehaviour
             
         if (frontRenderer == null || backRenderer == null)
             Debug.LogError("Card renderers not found!");
+        
+        
     }
     
 
     private void Start()
     {
+        UpdateCardSprites(); // update the sprite to the correct one when initialized
         
-   
-        UpdateCardSprites();
+    }
+    
+    void OnHoverEnter()
+    {
+        Debug.Log("OnHoverEnter");  
+        if (actionManager == null) return;
+        
+      
+        ScaleAction sa = new ScaleAction(this.gameObject, 
+            (new Vector3(1.4f, 1.4f, 1.4f)),
+            0.5f,
+            0.0f, 
+            easeFunction: Easing.EaseOutElastic,
+            false);
+    
+        actionManager.AddAction(sa);
+        isHovered = true;
+    }
+
+    void OnHoverExit()
+    {
+        if (actionManager == null) return;
+        
+        isHovered = false;
+        
+        ScaleAction sa = new ScaleAction(this.gameObject, 
+            (new Vector3(1.0f, 1.0f, 1.0f)),
+            0.5f,
+            0.0f, 
+            easeFunction: Easing.EaseOutElastic,
+            false);
+        actionManager.AddAction(sa);
+        
     }
     
     void Update()
     {
-
+        Ray r = Camera.main.ScreenPointToRay(Input.mousePosition);
+        
+        if (Physics.Raycast(r, out RaycastHit hit) &&
+            hit.collider.gameObject == gameObject)
+        {
+            if (!isHovered)
+            {
+                isHovered = true;
+                OnHoverEnter();
+            }
+        }
+        else if (isHovered)
+        {
+            isHovered = false;
+            OnHoverExit();
+        }
+        
     }
     
     public void UpdateCardSprites()

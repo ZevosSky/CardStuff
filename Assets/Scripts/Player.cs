@@ -7,10 +7,14 @@
 
 
 using UnityEngine;
+using System;
+using System.Collections;
+using System.Collections.Generic;
 using Quaternion = UnityEngine.Quaternion;
 using Vector2 = UnityEngine.Vector2;
 using Vector3 = UnityEngine.Vector3;
 using Vector4 = UnityEngine.Vector4;
+
 
 public class PlayerCurve
 {
@@ -237,66 +241,7 @@ public class PlayerCurve
     }
     
     
-    // give a selected card more space NOT DONE DO NOT USE!!!
-    // THIS FUNCTION IS INCOMPLETE AND SHOULD NOT BE USED
-    public (Vector3, float)[] CalculateCardPositionsHighlightSelected(int numberOfCards, int selectedCardIndex, float extraSpace)
-    {
-        if (numberOfCards <= 0) return null;
-        (Vector3, float)[] output = new (Vector3, float)[numberOfCards];
-        // distribute cards so that the selected card has more space
-        float t;            // interpolation value
-        Vector2 localPos;
-        Vector2 normalVector;
-        Vector3 worldPos;
-        Vector3 worldNormal;
-        float zAngle;
-        
-        // lambda function to calculate the stuff for each t value 
-        void CalculateT(float t)
-        {
-            localPos = PreTransformInterpolation(t);
-            normalVector = GetNormalVector(t);
-            worldPos = transform.TransformPoint(new Vector3(localPos.x, localPos.y, 0.0f));
-            worldNormal = transform.TransformDirection(normalVector.x, normalVector.y, 0.0f);
-            zAngle = CalculateRawZRotation(worldNormal);
-        }
-        
-        if (numberOfCards == 1) { // Not really much to do here 
-            localPos = PreTransformInterpolation(0.5f);
-            normalVector = GetNormalVector(0.5f);
-            worldPos = transform.TransformPoint(new Vector3(localPos.x, localPos.y, 0.0f));
-            worldNormal = transform.TransformDirection(normalVector.x, normalVector.y, 0.0f);
-            zAngle = CalculateRawZRotation(worldNormal);
-            output[0] = (worldPos, zAngle);
-            return output;
-        }
-        
-        // Normal spacing or maxed out spacing 
-        if (numberOfCards * interpolatedDistance > 1.0f) // Max hand cases 
-        {
-            // side card cases
-            if (selectedCardIndex == 0 || selectedCardIndex == numberOfCards - 1)
-            {
-                t = 0;
-                for (int i = 0; i < numberOfCards; i++)
-                {
-                    localPos = PreTransformInterpolation(t);
-                    normalVector = GetNormalVector(t);
-                    worldPos = transform.TransformPoint(new Vector3(localPos.x, localPos.y, 0.0f - (i * zOffset)));
-                    worldNormal = transform.TransformDirection(normalVector.x, normalVector.y, 0.0f);
-                    zAngle = CalculateRawZRotation(worldNormal);
-                    output[i] = (worldPos, zAngle);
-                }
-            }
-        }
-        
-        
-        
-        //WIP FUNCTION DO NOT USE YET 
-        
-        
-        return output;
-    }
+
     
     /// <summary>
     /// Calculate the raw Z-axis rotation angle based on normal vector </summary>
@@ -323,6 +268,38 @@ public class PlayerCurve
 } // End of Player Curve Class 
 
 
+public class Player : MonoBehaviour
+{
+    public enum PlayerType
+    {
+        HUMAN,
+        AI
+    }
+    
+    // I'm making this get instantiated by the GameManager so these need to be public so I can assign them there
+    
+    public PlayerCurve handCurve;       // ref to the player's hand curve
+    public ActionManager actionManager; // 
+    public PlaySpace playSpace;
+    public PlayerType playerType;       // is this a human or AI player
+    
+    
+    void Start()
+    {
+           
+        
+    }
+
+    void Update()
+    {
+        if (playerType == PlayerType.HUMAN)
+        {
+            
+            
+        }
+    }
+
+}
 
 
 
