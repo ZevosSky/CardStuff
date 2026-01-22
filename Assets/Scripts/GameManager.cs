@@ -11,9 +11,7 @@ using Unity.VisualScripting;
 using UnityEngine;
 using UnityEditor;
 using UnityEngine.Playables;
-
-
-
+using UnityEngine.Serialization;
 
 
 //==| Rules of Rummy |==================================================================================================|
@@ -33,58 +31,69 @@ using UnityEngine.Playables;
     is available to be picked up by the next player. Players cannot freely swap cards from a pool.
 */
 //==| Game Manager |===================================================================================================|
-public class GameManager : MonoBehaviour
+public partial class GameManager : MonoBehaviour
 {
     [Header("Action to the Scene Action Manager")]
     [Tooltip("In charge of all actions that happen within the scene")]
-    [SerializeField] private ActionManager actionManager;
+    [SerializeField]
+    private ActionManager actionManager;
+
     [SerializeField] private GameObject cardPrefab;
-    
+
     //==| Game Setting Properties |=====================================================================================|
     [Header("Game Settings")]
     [SerializeField] // NOTE: This can not be changed via the inspector in play mode
-    [Range(2, 6)]    // We could have more players but if we do I'm going to have to make it 2+ decks 
-    private int playerCount = 4;               // number of players at the table 
-    
-    [SerializeField]
-    [Range(1, 3)]
-    private int CardSize = 1;    // Base size of the card
-    private const int CardSizeMin = 1;    // Base size of the card
-    private const int CardSizeMax = 3;    // Max size of the 
-    private bool cardSizeDirty = false;   // if the card size has been changed
-    
+    [Range(2, 6)]
+    // We could have more players but if we do I'm going to have to make it 2+ decks 
+    private int playerCount = 4; // number of players at the table 
+
+    [SerializeField] [Range(1, 3)] private int CardSize = 1; // Base size of the card
+    private const int CardSizeMin = 1; // Base size of the card
+    private const int CardSizeMax = 3; // Max size of the 
+    private bool cardSizeDirty = false; // if the card size has been changed
+
     // Play Field Locations
-    [Header ("Card Location References")]
-    [SerializeField] private GameObject DrawDeckLocationReference; // where the draw deck is located
+    [Header("Card Location References")] [SerializeField]
+    private GameObject DrawDeckLocationReference; // where the draw deck is located
+
     [SerializeField] private GameObject DiscardDeckLocationReference; // where the discard deck is located
-    
-    
+
+
     // * * * Game Data * * * \\
     //==| Places to put cards |=========================================================================================|
-    
-    private List<GameObject> WholeDeck = new List<GameObject>();  // deck of ALL cards
-    private List<GameObject> DrawDeck = new List<GameObject>();   // deck of cards to draw from
-    private List<GameObject> SwapDeck = new List<GameObject>();   // deck of cards that have been discarded / swapped
+
+    private List<GameObject> WholeDeck = new List<GameObject>(); // deck of ALL cards
+    private List<GameObject> DrawDeck = new List<GameObject>(); // deck of cards to draw from
+    private List<GameObject> SwapDeck = new List<GameObject>(); // deck of cards that have been discarded / swapped
     // private List<PlayerState> playerStates = new List<PlayState>();    // players at the table
-    
-    [SerializeField] private PlaySpace playSpace; // reference to the play space script in the scene (in charge of player positions)
-    
-    
-    //==| Misc Game Data |==============================================================================================|
-    [Header("Deck Spacing Properties")]
-    [SerializeField] 
-    [Tooltip("Spacing between cards in the draw deck (x, y, -z)")]
-    private Vector3 DrawDeckSpacing = new Vector3(0.003f, 0.003f, -0.05f); 
+
     [SerializeField]
-    [Tooltip("Spacing between cards in the swap deck hand (x, y, -z)")]
-    private Vector3 DiscardDeckSpacing = new Vector3(0.00f, 0.001f, -0.05f); // spacing between cards in the discard deck
+    private PlaySpace playSpace; // reference to the play space script in the scene (in charge of player positions)
+
+    [DoNotSerialize]
+    public List<GameObject> playSpaceCards = new List<GameObject>(); // cards currently in the play space (on the table)
+
+    //==| Misc Game Data |==============================================================================================|
+    [Header("Deck Spacing Properties")] [SerializeField] [Tooltip("Spacing between cards in the draw deck (x, y, -z)")]
+    private Vector3 DrawDeckSpacing = new Vector3(0.003f, 0.003f, -0.05f);
+
+    [SerializeField] [Tooltip("Spacing between cards in the swap deck hand (x, y, -z)")]
+    private Vector3
+        DiscardDeckSpacing = new Vector3(0.00f, 0.001f, -0.05f); // spacing between cards in the discard deck
+
+    
     
     //==| Game State |==================================================================================================|
-    [DoNotSerialize] public int turn;
-    [DoNotSerialize] public bool IsPaused;
-    [DoNotSerialize] public bool AllowInput;
+    [DoNotSerialize] public int _turn;
+    [DoNotSerialize] public bool _isPaused = false;
+    [DoNotSerialize] public bool _allowInteraction;
+    [DoNotSerialize] private List<List<GameObject>> _playerHands = new List<List<GameObject>>(); // Each player's hand of cards
+    [DoNotSerialize] private List<GameObject> _drawDeck = new List<GameObject>(); // The draw deck of cards
+    [DoNotSerialize] private List<GameObject> _discardDeck = new List<GameObject>(); // The discard deck of cards
+    
+    
     //==| Unity Functions |=============================================================================================|
-    bool GetIsPaused() { return IsPaused; }
+    bool GetIsPaused() { return _isPaused; }
     
     #region UnityFunctions
     IEnumerator DelayedStart()
@@ -191,33 +200,39 @@ public class GameManager : MonoBehaviour
         
         var playerPositions = playSpace.GetPlayerObjectReferences();
         playerCount = playSpace.GetPlayerCount();
+        // add playerCount number of player states
         
         
-        for (int i = 0; i < playerCount; ++i) {
-            Debug.Log($"Player {i} rotation: {playerPositions[i].transform.eulerAngles}");
+        for (int i = 0; i < playerCount; ++i) { // for each player... 
+            // Debug.Log($"Player {i} rotation: {playerPositions[i].transform.eulerAngles}");
             PlayerCurve playerCurve = new PlayerCurve(playerPositions[i].transform, 3, 1, 0.01f);
-            //playerStates.Add(new PlayerState(playerCurve));
+            _playerHands.Add(new List<GameObject>());
             (Vector3, float)[] handPositions = playerCurve.CalculateCardPositions(5);
-
-            for (int j = 0; j < 5; ++j)
+            
+            for (int j = 0; j < 5; ++j) // for each card in their starting hand
             {
                 GameObject card = DrawDeck[DrawDeck.Count - 1];
                 DrawDeck.RemoveAt(DrawDeck.Count - 1);
                 var cc = card.GetComponentInChildren<Card>();
-
-                //Debug.Log($"Player {i} transform position: {playerPositions[i].transform.position}, rotation: {playerPositions[i].transform.rotation.eulerAngles}, scale: {playerPositions[i].transform.localScale}");
-                // Apply Z rotation while preserving X rotation (flipped state)
-                if (i == 0) cc.faceUp = false;
-                else cc.faceUp = true;
+                
+                // This got inverted somehow?
+                if (i == 0) cc.faceUp = false; // player 0 is the human player, deal face up cards
+                else cc.faceUp = true;         // "AI" players get face down cards 
+                
                 AnimateCardToPosition(card, handPositions[j].Item1, handPositions[j].Item2, (i == 0) ? false : true);
+                _playerHands[i].Add(card);
             }
         } // end for loop
+
+        BlockInteraction(0.1f); // block interaction until dealing is done
         
         // register all cards to action manager
         for (int i = 0; i < WholeDeck.Count; ++i)
         {
             RegisterCardToActionManager(WholeDeck[i]);
         }
+        
+        
         
     }
 
@@ -239,52 +254,16 @@ public class GameManager : MonoBehaviour
         
         
         
-        if (turn == 0 && !AutoPlay) // player turn 
+        if (_turn == 0 && !AutoPlay) // player turn 
         {
-            // Wait for player action 
-            
-            // phase 1...
-            
-            // phase 2...
-            
+            // wait for player input
+            CheckIfCardSelected(); 
+
         }
         else // computer turn, play randomly 
         {
-            // get the "player" we are playing as
-            var playerPositions = playSpace.GetPlayerObjectReferences();
-            GameObject player = playerPositions[turn];
-            PlayerCurve playerCurve = new PlayerCurve(player.transform, 3, 1, 0.01f);
-            
-            // phase 1: draw a card from ether the draw deck or the swap deck
-            
-            
-            
-            switch (Random.Range(0, 2)) // 0 or 1
-            {
-                case 0: // draw from draw deck
-                    if (DrawDeck.Count > 0)
-                    {
-                        GameObject card = DrawDeck[DrawDeck.Count - 1];
-                        DrawDeck.RemoveAt(DrawDeck.Count - 1);
-                        AddCardToSwapDeck(card);
-                    }
-                    break;
-                case 1: // draw from swap deck
-                    if (SwapDeck.Count > 0)
-                    {
-                        GameObject card = SwapDeck[SwapDeck.Count - 1];
-                        SwapDeck.RemoveAt(SwapDeck.Count - 1);
-                        AddCardToSwapDeck(card);
-                    }
-                    break;
-                
-            }
-            
-            
-
-
-            turn = (turn + 1) % (playerCount - 1); // increment turn
-        }
+            AITurn();
+        } // computer turn
 
 
 
@@ -405,7 +384,8 @@ public class GameManager : MonoBehaviour
     {
         for (int i = 0; i < cards.Count; ++i)
         {
-            AddCardToDrawDeck(cards[i]);
+            AddCardToDrawDeck(cards[i]); // add each card to the draw deck (animation) 
+            
         }
         actionManager.AddAction(new BlockAction(.5f));
     }
@@ -652,7 +632,7 @@ public class GameManager : MonoBehaviour
         // Add rotate action
         simultaneous.AddAction(new RotateAction(
             card,
-            eulerAngles,  // Euler angles, already correctly formatted for your RotateAction
+            eulerAngles,  
             0.5f,         // Duration
             0.0f,         // Delay
             easeFunction: Easing.EaseOutCubic,
@@ -665,17 +645,7 @@ public class GameManager : MonoBehaviour
     
     #endregion
     
-    #region EnableDisableFunctions
 
-    void RenableInputAfterActions() 
-    {
-        CallBackBlockAction enableInputAfterActions = new CallBackBlockAction(
-            0.1f, () => { AllowInput = true; }, false);
-        actionManager.AddAction(enableInputAfterActions);
-    }
-    
-    
-    #endregion
     
     void EndOfGameCheck()
     {
@@ -692,11 +662,21 @@ public class GameManager : MonoBehaviour
         if (cardComponent != null)
         {
             cardComponent.actionManager = actionManager;
+            cardComponent.gameManager = this;
         }
         else
         {
             Debug.LogError("RegisterCardToActionManager: Card component not found on the provided GameObject.");
         }
+    }
+
+    void BlockInteraction(float duration)
+    {
+        _allowInteraction = false;
+        actionManager.AddAction(new CallBackAction(duration,
+            false,
+            () => { _allowInteraction = true; })
+        );
     }
     
     

@@ -39,7 +39,7 @@ public class Card : MonoBehaviour
     [HideInInspector] public ActionManager actionManager; // reference to action manager in play space 
     [HideInInspector] public bool isHoverAble; // control if hover does anything
     [HideInInspector] public bool isHovered; 
-    
+    [HideInInspector] public GameManager gameManager;
     
     // Get the SpriteRenderers for the front and back of the card
     void Awake() 
@@ -64,7 +64,7 @@ public class Card : MonoBehaviour
     
     void OnHoverEnter()
     {
-        Debug.Log("OnHoverEnter");  
+        // Debug.Log("OnHoverEnter");  
         if (actionManager == null) return;
         
       
@@ -97,14 +97,22 @@ public class Card : MonoBehaviour
     
     void Update()
     {
+        if (gameManager._isPaused || gameManager._allowInteraction == false) return; 
+        
         Ray r = Camera.main.ScreenPointToRay(Input.mousePosition);
+
+        // if (Physics.Raycast(r, out RaycastHit hit1))
+        // {
+        //     Debug.Log("Hit: " + hit1.collider.gameObject.name);
+        // }
         
         if (Physics.Raycast(r, out RaycastHit hit) &&
-            hit.collider.gameObject == gameObject)
+            hit.collider == hoverCollider)
         {
             if (!isHovered)
             {
                 isHovered = true;
+                
                 OnHoverEnter();
             }
         }

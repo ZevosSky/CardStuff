@@ -7,6 +7,8 @@
 
 
 //===| Includes | =================================================================
+
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
@@ -21,9 +23,9 @@ using UnityEngine.UIElements;
 
 public abstract class ActionBase
 {
-    public float duration;
-    public float delay; 
-    public bool isBlocking;
+    public float duration; // total duration of the action
+    public float delay;    // delay before starting the action
+    public bool isBlocking;// if true, blocks subsequent actions until complete
     public System.Action onComplete;
     public bool isComplete;
     public float timeScale = 1f;
@@ -109,9 +111,9 @@ public class BlockAction : ActionBase
 }
 
 // Callback action to trigger a function when the action completes
-public class CallBackBlockAction : ActionBase
+public class CallBackAction : ActionBase
 {
-    public CallBackBlockAction(float duration, System.Action callback, bool isBlocking)
+    public CallBackAction(float duration, bool isBlocking, System.Action callback)
     {
         this.duration = duration;
         this.onComplete = callback;
@@ -563,9 +565,20 @@ public class SimultaneousTransformActions : GameObjectAction
     }
 } // end of SimultaneousTransformActions
 
-#endregion // End of ScaleRotateTranslateActions Region 
+
+
+
+
 
 #endregion // End of Actions Region 
+
+#endregion
+
+// CallBack action 
+
+
+
+
 
 // ( "Action List" ) 
 //===| Action Manager |============================================================

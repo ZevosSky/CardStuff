@@ -11,6 +11,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using System;
+using UnityEngine.Serialization;
 
 
 public class Ellipse 
@@ -112,10 +113,13 @@ public class PlaySpace : MonoBehaviour
     [SerializeField] private GameObject _GameSpace; // the center of the game space
     [SerializeField] private float _Width; // the width of the game space
     [SerializeField] private float _Height; // the height of the game space
-    [SerializeField] [Range(MIN_PLAYERS, MAX_PLAYERS)] private int _Players; // "Segments" of the ellipse
+    [FormerlySerializedAs("_Players")] [SerializeField] [Range(MIN_PLAYERS, MAX_PLAYERS)] private int _PlayerCount; // "Segments" of the ellipse
     [SerializeField] GameObject _PlayerPrefab; // the player prefab
+    [SerializeField] public GameObject playZoneReference;  
     
-    public int Players() { return _Players; }
+    
+    
+    public int Players() { return _PlayerCount; }
     
     
     private Vector3 _CenterSpace;
@@ -123,13 +127,13 @@ public class PlaySpace : MonoBehaviour
     private GameObject[] _PlayerObjectReferences = new GameObject[MAX_PLAYERS];
 
     public GameObject[] AddPlayer() {
-        if (_Players < MAX_PLAYERS) {_Players++;}
+        if (_PlayerCount < MAX_PLAYERS) {_PlayerCount++;}
         SetupPlayerPositions(); // recalculate the player positions and curves
         return _PlayerObjectReferences;
     }
 
     public GameObject[] RemovePlayer() {
-        if (_Players > MIN_PLAYERS) { _Players--; }
+        if (_PlayerCount > MIN_PLAYERS) { _PlayerCount--; }
         SetupPlayerPositions(); // recalculate the player positions and curves
         return _PlayerObjectReferences;
     }
@@ -139,7 +143,7 @@ public class PlaySpace : MonoBehaviour
     
    
     /// <returns>the number of players in the game (NOT ZERO INDEXED)</returns>
-    public int GetPlayerCount() { return _Players; } 
+    public int GetPlayerCount() { return _PlayerCount; } 
     
     private void SetupPlayerPositions()
     {
@@ -147,7 +151,7 @@ public class PlaySpace : MonoBehaviour
         float t = 0.75f; // Start at the bottom of the ellipse
         Ellipse e = new Ellipse(_Width, _Height, _CenterSpace);
         
-        for (int i = 0; i < _Players; i++)
+        for (int i = 0; i < _PlayerCount; i++)
         {
             // Use the ellipse class to calculate the player positions
             _PlayerPositions[i] = e.GetPointAt(t);
@@ -171,12 +175,12 @@ public class PlaySpace : MonoBehaviour
                 _PlayerObjectReferences[i].transform.rotation = rotation;
             }
     
-            t += 1.0f / _Players;
+            t += 1.0f / _PlayerCount;
             t = t % 1.0f;
         }
         
         // Deactivate any unused player objects
-        for (int i = _Players; i < MAX_PLAYERS; ++i)
+        for (int i = _PlayerCount; i < MAX_PLAYERS; ++i)
         {
             if (_PlayerObjectReferences[i] != null)
                 _PlayerObjectReferences[i].SetActive(false);
@@ -227,7 +231,7 @@ public class PlaySpace : MonoBehaviour
         Vector3 pos3D = _GameSpace.GetComponent<Transform>().position;
         Vector2 pos2D = new Vector2(pos3D.x, pos3D.y); // Since we are in the XY plane, we can ignore the Z coordinate
         
-        DrawEllipse(pos2D, _Width, _Height, _Players);
+        DrawEllipse(pos2D, _Width, _Height, _PlayerCount);
     }
     
     

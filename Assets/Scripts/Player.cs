@@ -60,9 +60,7 @@ public class PlayerCurve
         this.zOffset = zOffset;
         
     }
-
     //==| Functions |===================================================================================================|
-    
     
     /// <summary>
     /// Calculate the positions of the cards in the player's hand 
