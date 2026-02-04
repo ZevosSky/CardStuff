@@ -90,21 +90,31 @@ public class Card : MonoBehaviour
             0.5f,
             0.0f, 
             easeFunction: Easing.EaseOutElastic,
-            false);
+            false
+        );
         actionManager.AddAction(sa);
         
     }
     
     void Update()
     {
-        if (gameManager._isPaused || gameManager._allowInteraction == false) return; 
-        
         Ray r = Camera.main.ScreenPointToRay(Input.mousePosition);
 
         // if (Physics.Raycast(r, out RaycastHit hit1))
         // {
         //     Debug.Log("Hit: " + hit1.collider.gameObject.name);
         // }
+        
+        // Check if interaction is blocked - if so, force unhover and return
+        if (gameManager._isPaused || gameManager._allowInteraction == false)
+        {
+            if (isHovered)
+            {
+                isHovered = false;
+                OnHoverExit();
+            }
+            return;
+        }
         
         if (Physics.Raycast(r, out RaycastHit hit) &&
             hit.collider == hoverCollider)
@@ -121,6 +131,8 @@ public class Card : MonoBehaviour
             isHovered = false;
             OnHoverExit();
         }
+        
+        
         
     }
     

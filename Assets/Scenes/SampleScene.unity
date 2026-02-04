@@ -174,11 +174,12 @@ MonoBehaviour:
   DrawDeckLocationReference: {fileID: 1178169789}
   DiscardDeckLocationReference: {fileID: 352276157}
   playSpace: {fileID: 1054705960}
+  playSpaceCards: []
   DrawDeckSpacing: {x: 0.003, y: 0.003, z: -0.05}
   DiscardDeckSpacing: {x: 0, y: 0.001, z: -0.05}
-  turn: 0
-  IsPaused: 0
-  AllowInput: 0
+  _turn: 0
+  _isPaused: 0
+  _allowInteraction: 0
   DebugSphere: {fileID: 736677113}
   AutoPlay: 0
 --- !u!4 &187580698
@@ -747,8 +748,9 @@ MonoBehaviour:
   _GameSpace: {fileID: 1054705958}
   _Width: 10
   _Height: 6
-  _Players: 4
+  _PlayerCount: 4
   _PlayerPrefab: {fileID: 50965170567371237, guid: efa09938f75d5b54d8b2f4b20e8ca9c8, type: 3}
+  playZoneReference: {fileID: 352276157}
 --- !u!1 &1178169789
 GameObject:
   m_ObjectHideFlags: 0

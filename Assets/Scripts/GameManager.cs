@@ -87,11 +87,11 @@ public partial class GameManager : MonoBehaviour
     [DoNotSerialize] public int _turn;
     [DoNotSerialize] public bool _isPaused = false;
     [DoNotSerialize] public bool _allowInteraction;
+    [DoNotSerialize] private int _lastExecutedTurn = -1; // Track which turn was last executed
     [DoNotSerialize] private List<List<GameObject>> _playerHands = new List<List<GameObject>>(); // Each player's hand of cards
     [DoNotSerialize] private List<GameObject> _drawDeck = new List<GameObject>(); // The draw deck of cards
     [DoNotSerialize] private List<GameObject> _discardDeck = new List<GameObject>(); // The discard deck of cards
-    
-    
+    [DoNotSerialize] private List<PlayerCurve> _playerCurves = new List<PlayerCurve>();
     //==| Unity Functions |=============================================================================================|
     bool GetIsPaused() { return _isPaused; }
     
@@ -180,7 +180,7 @@ public partial class GameManager : MonoBehaviour
         #endregion
         
         // * * * Game Setup * * * \\
-
+        
         // Spawn a deck of cards, debug show all the cards in a spread
         // Step 1: Spawn and prepare deck
         SpawnDeck();
@@ -206,6 +206,7 @@ public partial class GameManager : MonoBehaviour
         for (int i = 0; i < playerCount; ++i) { // for each player... 
             // Debug.Log($"Player {i} rotation: {playerPositions[i].transform.eulerAngles}");
             PlayerCurve playerCurve = new PlayerCurve(playerPositions[i].transform, 3, 1, 0.01f);
+            _playerCurves.Add(playerCurve); // Store the curve for later use
             _playerHands.Add(new List<GameObject>());
             (Vector3, float)[] handPositions = playerCurve.CalculateCardPositions(5);
             
@@ -613,6 +614,41 @@ public partial class GameManager : MonoBehaviour
     {
         // Create simultaneous action
         var simultaneous = new SimultaneousTransformActions(card);
+    
+        // Add translate action
+        simultaneous.AddAction(new TranslateAction(
+            card,
+            targetPosition,
+            0.5f,  // Duration
+            0.0f,  // Delay
+            easeFunction: Easing.EaseOutCubic,
+            false  // Not blocking
+        ));
+    
+        // Get the proper Euler angles based on whether the card is flipped
+        Vector3 eulerAngles = isFlipped 
+            ? GetFlippedCardEulerAngles(zRotation)  // For flipped cards
+            : new Vector3(0, 0, zRotation);         // For face-up cards
+    
+        // Add rotate action
+        simultaneous.AddAction(new RotateAction(
+            card,
+            eulerAngles,  
+            0.5f,         // Duration
+            0.0f,         // Delay
+            easeFunction: Easing.EaseOutCubic,
+            false         // Not blocking
+        ));
+    
+        // Add to action manager
+        actionManager.AddAction(simultaneous);
+    }
+    
+    private void AnimateCardToPositionNoBlock(GameObject card, Vector3 targetPosition, float zRotation, bool isFlipped)
+    {
+        // Create simultaneous action
+        var simultaneous = new SimultaneousTransformActions(card);
+        simultaneous.isBlocking = false;
     
         // Add translate action
         simultaneous.AddAction(new TranslateAction(

@@ -27,6 +27,9 @@ public partial class GameManager
         _discardDeck.Add(cardObject); 
         AnimateCardToPosition(cardObject, calculatedPosition, 0, false);
         actionManager.AddAction( new BlockAction(0.5f));
+        
+        // Realign remaining cards in hand
+        AlignHandCards(playerIndex);
     }
 
     
@@ -74,13 +77,70 @@ public partial class GameManager
 
    
     
-    
+    // recenter player hand cards after a card left the hand or something else happend
+    void AlignHandCards(int playerIndex)
+    {
+        if (_playerHands[playerIndex].Count == 0) return;
+        if (playerIndex < 0 || playerIndex >= playerCount) return;
+        
+        // Get the number of cards in the player's hand
+        int cardCount = _playerHands[playerIndex].Count;
+        
+        // Calculate new positions for all cards using the stored PlayerCurve
+        (Vector3, float)[] handPositions = _playerCurves[playerIndex].CalculateCardPositions(cardCount);
+        
+        // Animate each card to its new position
+        for (int i = 0; i < cardCount; i++)
+        {
+            GameObject card = _playerHands[playerIndex][i];
+            Card cardComponent = card.GetComponentInChildren<Card>();
+            
+            // Determine if card should be flipped (player 0 sees their cards face-up)
+            bool isFlipped = (playerIndex != 0);
+            
+            // Animate card to new position
+            AnimateCardToPositionNoBlock(card, handPositions[i].Item1, handPositions[i].Item2, isFlipped);
+        }
+    }
     
     
     
     // if it's an AI player's turn, have them play a card
     private void AITurn()
     {
+        // Only execute once per turn number
+        if (_lastExecutedTurn == _turn) return;
         
+        // Check if current AI player has cards to play
+        if (_playerHands[_turn].Count == 0)
+        {
+            _turn = (_turn + 1) % playerCount; // Skip to next player if no cards
+            return;
+        }
+        
+        // Mark this turn as executed
+        _lastExecutedTurn = _turn;
+        
+        // Block player interaction while AI is playing
+        BlockInteraction(2.0f); // Block for full duration of AI turn
+        
+        // Select a random card from the AI's hand
+        int randomCardIndex = Random.Range(0, _playerHands[_turn].Count);
+        GameObject cardToPlay = _playerHands[_turn][randomCardIndex];
+        
+        // Add a small delay before AI plays (makes it more natural)
+        actionManager.AddAction(new BlockAction(0.5f));
+        
+        // Play the selected card
+        PlayCard(_turn, cardToPlay, playSpace.playZoneReference);
+        
+        // Add another delay after playing for visual clarity, then advance turn
+        actionManager.AddAction(new CallBackAction(
+            0.5f, 
+            false, 
+            () => {
+                _turn = (_turn + 1) % playerCount; // Advance to next player's turn
+            }
+        ));
     }
 }
