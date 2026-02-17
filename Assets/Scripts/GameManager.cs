@@ -47,10 +47,12 @@ public partial class GameManager : MonoBehaviour
     // We could have more players but if we do I'm going to have to make it 2+ decks 
     private int playerCount = 4; // number of players at the table 
 
-    [SerializeField] [Range(1, 3)] private int CardSize = 1; // Base size of the card
-    private const int CardSizeMin = 1; // Base size of the card
-    private const int CardSizeMax = 3; // Max size of the 
+    [SerializeField] [Range(1, 3)] private float CardSize = 1; // Base size of the card
+    private const float CardSizeMin = 0.5f; // Base size of the card
+    private const float CardSizeMax = 2.5f; // Max size of the 
     private bool cardSizeDirty = false; // if the card size has been changed
+    [SerializeField] private HoverManager hoverManager; 
+    
 
     // Play Field Locations
     [Header("Card Location References")] [SerializeField]
@@ -81,6 +83,9 @@ public partial class GameManager : MonoBehaviour
     private Vector3
         DiscardDeckSpacing = new Vector3(0.00f, 0.001f, -0.05f); // spacing between cards in the discard deck
 
+    // settings (config from pause menu) 
+    
+ 
     
     
     //==| Game State |==================================================================================================|
@@ -251,7 +256,7 @@ public partial class GameManager : MonoBehaviour
         
         
         EndOfGameCheck(); // check if the game should end & what to do if it does
-
+    
         
         
         
@@ -646,6 +651,10 @@ public partial class GameManager : MonoBehaviour
     
     private void AnimateCardToPositionNoBlock(GameObject card, Vector3 targetPosition, float zRotation, bool isFlipped)
     {
+        // actionManager.AddAction(new ScaleAction(
+        //     card,
+        //     new Vector3(1)));
+        
         // Create simultaneous action
         var simultaneous = new SimultaneousTransformActions(card);
         simultaneous.isBlocking = false;
@@ -714,6 +723,25 @@ public partial class GameManager : MonoBehaviour
             () => { _allowInteraction = true; })
         );
     }
+    
+    
+    // Hovering card logic: when a card is hovered we want to scale it and in reverse when it's unhovered 
+    // refactoring this from card script to here since the card script should only be in charge of the card itself, not the player interaction logic (which is more of a game manager thing) 
+    // this is called in update
+
+    [SerializeField] private List<LayerMask> hoverLayers = new List<LayerMask>(); // layers that can be hovered over (cards)
+    [DoNotSerialize] private GameObject hoveredCard = null; 
+    void HoverLogic()
+    {
+        // raycast from mouse position to detect if hovering over a card
+        if (Input.mousePosition != null) return;
+        
+        
+        
+    }
+    
+    
+    
     
     
     

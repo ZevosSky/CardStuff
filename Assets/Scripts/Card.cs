@@ -62,9 +62,9 @@ public class Card : MonoBehaviour
         
     }
     
-    void OnHoverEnter()
+    public void HoverEnter()
     {
-        // Debug.Log("OnHoverEnter");  
+        // Debug.Log("OnHoverEnter");
         if (actionManager == null) return;
         
       
@@ -79,7 +79,7 @@ public class Card : MonoBehaviour
         isHovered = true;
     }
 
-    void OnHoverExit()
+    public void HoverExit()
     {
         if (actionManager == null) return;
         
@@ -93,44 +93,11 @@ public class Card : MonoBehaviour
             false
         );
         actionManager.AddAction(sa);
-        
+
     }
     
     void Update()
     {
-        Ray r = Camera.main.ScreenPointToRay(Input.mousePosition);
-
-        // if (Physics.Raycast(r, out RaycastHit hit1))
-        // {
-        //     Debug.Log("Hit: " + hit1.collider.gameObject.name);
-        // }
-        
-        // Check if interaction is blocked - if so, force unhover and return
-        if (gameManager._isPaused || gameManager._allowInteraction == false)
-        {
-            if (isHovered)
-            {
-                isHovered = false;
-                OnHoverExit();
-            }
-            return;
-        }
-        
-        if (Physics.Raycast(r, out RaycastHit hit) &&
-            hit.collider == hoverCollider)
-        {
-            if (!isHovered)
-            {
-                isHovered = true;
-                
-                OnHoverEnter();
-            }
-        }
-        else if (isHovered)
-        {
-            isHovered = false;
-            OnHoverExit();
-        }
         
         
         
