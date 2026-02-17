@@ -266,6 +266,11 @@ public partial class GameManager : MonoBehaviour
             CheckIfCardSelected(); 
 
         }
+        if (_turn > _playerHands.Count)
+        {
+            // round over, reset turn to 0 and do end of roundstuff (score calculation, reshuffling, etc)
+            
+        }
         else // computer turn, play randomly 
         {
             AITurn();
@@ -275,7 +280,6 @@ public partial class GameManager : MonoBehaviour
 
     }
     #endregion // UnityFunctions
-    
     
     
     #region DeckFunctions
@@ -396,12 +400,10 @@ public partial class GameManager : MonoBehaviour
         actionManager.AddAction(new BlockAction(.5f));
     }
     
-    
     void AddCardToSwapDeck(GameObject card)
     {
         SwapDeck.Add(card);
     }
-    
     
     void ClearAllCards() // Clear all cards from the table
     {
@@ -470,7 +472,6 @@ public partial class GameManager : MonoBehaviour
         actionManager.AddAction(new BlockAction(0.01f));
     }
     
-    
     // Layer deck: keep z order correct based on index
     void LayerDeck()
     {
@@ -488,8 +489,6 @@ public partial class GameManager : MonoBehaviour
             effectedCards[i].transform.position = position;
         }
     }
-    
-    
     
     void FlipAllCards()
     {
@@ -519,8 +518,6 @@ public partial class GameManager : MonoBehaviour
         );
         
     }
-
-    
     
     #endregion // DeckFunctions
 
@@ -613,7 +610,6 @@ public partial class GameManager : MonoBehaviour
 
     #endregion
     
-    
     #region HandFunctions
     private void AnimateCardToPosition(GameObject card, Vector3 targetPosition, float zRotation, bool isFlipped)
     {
@@ -690,7 +686,6 @@ public partial class GameManager : MonoBehaviour
     
     #endregion
     
-
     
     void EndOfGameCheck()
     {
@@ -723,22 +718,12 @@ public partial class GameManager : MonoBehaviour
             () => { _allowInteraction = true; })
         );
     }
-    
-    
-    // Hovering card logic: when a card is hovered we want to scale it and in reverse when it's unhovered 
-    // refactoring this from card script to here since the card script should only be in charge of the card itself, not the player interaction logic (which is more of a game manager thing) 
-    // this is called in update
 
-    [SerializeField] private List<LayerMask> hoverLayers = new List<LayerMask>(); // layers that can be hovered over (cards)
-    [DoNotSerialize] private GameObject hoveredCard = null; 
-    void HoverLogic()
+    void EndOfRoundLogic()
     {
-        // raycast from mouse position to detect if hovering over a card
-        if (Input.mousePosition != null) return;
-        
-        
         
     }
+  
     
     
     
