@@ -5,9 +5,10 @@ using UnityEngine;
 
 public class HoverManager : MonoBehaviour
 {
-    [SerializeField] public GameManager gameManager;
+    [SerializeField] private GameManager gameManager;
+    [SerializeField] private ActionManager hoverActionManager; // Dedicated ActionManager for hover animations
     [SerializeField] private LayerMask hoverMask;
-    [SerializeField] private float maxDistance = 500f;
+    [SerializeField] private float maxDistance = 100f;
 
     private Card hovered;
     
@@ -33,6 +34,12 @@ public class HoverManager : MonoBehaviour
         hovered = next;
         if (hovered != null)
         {
+            // Assign the hover action manager to the card
+            if (hoverActionManager != null)
+            {
+                hovered.hoverActionManager = hoverActionManager;
+            }
+            
             Debug.Log("hovering" + hovered.name);
             hovered.HoverEnter();
         }

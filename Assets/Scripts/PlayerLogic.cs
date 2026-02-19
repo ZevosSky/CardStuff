@@ -24,8 +24,22 @@ public partial class GameManager
         calculatedPosition.x += _discardDeck.Count * xOffsetPerCard; // slight offset for stacking effect
         calculatedPosition.z -= _discardDeck.Count * 0.1f + 0.01f;
 
-        _discardDeck.Add(cardObject); 
-        AnimateCardToPosition(cardObject, calculatedPosition, 0, false);
+        _discardDeck.Add(cardObject);
+        
+        // Update card state based on player
+        Card cardComponent = cardObject.GetComponentInChildren<Card>();
+        if (cardComponent != null)
+        {
+            // AI players (not player 0) play cards face-down, player 0 plays face-up
+            if (playerIndex == 0)
+                cardComponent.faceUp = true;  // Player 0's card is face-up
+            else
+                cardComponent.faceUp = false; // AI players' cards are face-down
+        }
+        
+        // AI players (not player 0) play cards face-down, player 0 plays face-up
+        bool shouldBeFaceDown = (playerIndex != 0);
+        AnimateCardToPosition(cardObject, calculatedPosition, 0, shouldBeFaceDown);
         actionManager.AddAction( new BlockAction(0.5f));
         
         // Realign remaining cards in hand
@@ -65,7 +79,7 @@ public partial class GameManager
                     Input.GetMouseButtonDown(0))
                 {
                     PlayCard(0, card, playSpace.playZoneReference);
-                    _turn = (_turn + 1) % playerCount; // advance turn
+                    _turn = _turn + 1; // advance turn (let it reach playerCount to trigger end of round)
                     break;
                 }
             }
@@ -114,7 +128,7 @@ public partial class GameManager
         // Check if current AI player has cards to play
         if (_playerHands[_turn].Count == 0)
         {
-            _turn = (_turn + 1) % playerCount; // Skip to next player if no cards
+            _turn = _turn + 1; // Skip to next player if no cards
             return;
         }
         
@@ -139,7 +153,7 @@ public partial class GameManager
             0.5f, 
             false, 
             () => {
-                _turn = (_turn + 1) % playerCount; // Advance to next player's turn
+                _turn = _turn + 1; // Advance to next player's turn (let it reach playerCount to trigger end of round)
             }
         ));
     }

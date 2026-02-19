@@ -37,6 +37,7 @@ public class Card : MonoBehaviour
     public int backStyle; // 0-3 for different back designs
     
     [HideInInspector] public ActionManager actionManager; // reference to action manager in play space 
+    [HideInInspector] public ActionManager hoverActionManager; // reference to hover-specific action manager
     [HideInInspector] public bool isHoverAble; // control if hover does anything
     [HideInInspector] public bool isHovered; 
     [HideInInspector] public GameManager gameManager;
@@ -45,6 +46,7 @@ public class Card : MonoBehaviour
     void Awake() 
     {
         faceUp = true; // default to face up
+        isHoverAble = true; // default to hoverable
         frontRenderer = transform.Find("CardFront").GetComponent<SpriteRenderer>();
         backRenderer = transform.Find("CardBack").GetComponent<SpriteRenderer>();
         
@@ -64,8 +66,13 @@ public class Card : MonoBehaviour
     
     public void HoverEnter()
     {
-        // Debug.Log("OnHoverEnter");
-        if (actionManager == null) return;
+        // Check if hovering is enabled for this card
+        if (!isHoverAble) return;
+        
+        // Use hover action manager if available, fall back to main action manager
+        ActionManager targetManager = hoverActionManager != null ? hoverActionManager : actionManager;
+        
+        if (targetManager == null) return;
         
       
         ScaleAction sa = new ScaleAction(this.gameObject, 
@@ -75,13 +82,19 @@ public class Card : MonoBehaviour
             easeFunction: Easing.EaseOutElastic,
             false);
     
-        actionManager.AddAction(sa);
+        targetManager.AddAction(sa);
         isHovered = true;
     }
 
     public void HoverExit()
     {
-        if (actionManager == null) return;
+        // Check if hovering is enabled for this card
+        if (!isHoverAble) return;
+        
+        // Use hover action manager if available, fall back to main action manager
+        ActionManager targetManager = hoverActionManager != null ? hoverActionManager : actionManager;
+        
+        if (targetManager == null) return;
         
         isHovered = false;
         
@@ -92,8 +105,8 @@ public class Card : MonoBehaviour
             easeFunction: Easing.EaseOutElastic,
             false
         );
-        actionManager.AddAction(sa);
-
+        targetManager.AddAction(sa);
+        
     }
     
     void Update()

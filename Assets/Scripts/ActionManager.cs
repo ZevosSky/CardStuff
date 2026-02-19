@@ -359,7 +359,14 @@ public class RotateAction : GameObjectAction
 public class FlipAction : RotateAction
 {
     public FlipAction(GameObject entity, float duration, float delay = 0f, bool blocking = false) 
-        : base(entity, new Vector3(180, 0, 0), duration, delay, Easing.Linear, blocking) { }
+        : base(entity, CalculateFlipTarget(entity), duration, delay, Easing.Linear, blocking) { }
+    
+    private static Vector3 CalculateFlipTarget(GameObject entity)
+    {
+        // Get current rotation and add 180 to X axis for flip
+        Vector3 current = entity.transform.eulerAngles;
+        return new Vector3(current.x + 180f, current.y, current.z);
+    }
 }
 
 public class FlipActionBouncy : RotateAction
