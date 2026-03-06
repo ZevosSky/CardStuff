@@ -29,6 +29,9 @@ public class PlayerCurve
     //--| Hand Behavior |--------------------------------
     private float interpolatedDistance = 0.1f; // the distance between cards (assuming that the hand is not crowded) 
     private float zOffset = 0.001f;            // the z offset between cards to give a layered look
+
+    // the range of random spread applied to cards 
+    public Vector2 organicSpreadPercentage = new Vector2(0.0f, 0.06f); 
     #endregion
     //==================================================================================================================|
     
@@ -81,26 +84,34 @@ public class PlayerCurve
             return output;
         }
         // We cant fit all the the cards in the curve with default spacing
+        // Adjust the spacing to fit all cards within the curve
+        float effectiveSpacing = interpolatedDistance;
         if (numberOfCards * interpolatedDistance > 1.0f) 
-            return CalculateCardPositions(numberOfCards);
+        {
+            effectiveSpacing = 1.0f / numberOfCards; // Reduce spacing to fit all cards
+        }
         
-        float fanWidth = numberOfCards * interpolatedDistance;
+        float fanWidth = numberOfCards * effectiveSpacing;
         // Ensure we distribute cards evenly along the curve
         for (int i = 0; i < numberOfCards; i++)
         {
-            float t = (0.5f - (fanWidth / 2.0f)) + (i * interpolatedDistance);
+            float t = (0.5f - (fanWidth / 2.0f)) + (i * effectiveSpacing);
+            
+            // Apply a small organic nudge to t in local interpolation space
+            float organicNudge = UnityEngine.Random.Range(organicSpreadPercentage.x, organicSpreadPercentage.y);
+            float organicT = Mathf.Clamp01(t + organicNudge);
             
             // Calculate position and normal on curve
-            Vector2 localPos = PreTransformInterpolation(t);
-            Vector2 normalVector = GetNormalVector(t);
+            Vector2 localPos = PreTransformInterpolation(organicT);
+            Vector2 normalVector = GetNormalVector(organicT);
         
             // Transform to world space
             Vector3 worldPos = transform.TransformPoint(new Vector3(localPos.x, localPos.y, 0.0f - (i * zOffset)));
             Vector3 worldNormal = transform.TransformDirection(normalVector.x, normalVector.y, 0.0f);
-        
+
             // Calculate raw Z-axis rotation angle based on normal
             float zAngle = CalculateRawZRotation(worldNormal);
-        
+
             // Store the position and raw rotation angle for this card
             output[i] = (worldPos, zAngle);
         }

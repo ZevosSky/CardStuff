@@ -109,8 +109,9 @@ public partial class GameManager
             GameObject card = _playerHands[playerIndex][i];
             Card cardComponent = card.GetComponentInChildren<Card>();
             
-            // Determine if card should be flipped (player 0 sees their cards face-up)
-            bool isFlipped = (playerIndex != 0);
+            // Preserve the card's current face-up/face-down state
+            // We check if the card is currently face-down (faceUp == false)
+            bool isFlipped = (cardComponent != null && !cardComponent.faceUp);
             
             // Animate card to new position
             AnimateCardToPositionNoBlock(card, handPositions[i].Item1, handPositions[i].Item2, isFlipped);

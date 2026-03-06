@@ -16,7 +16,7 @@ using UnityEngine;
 public class CardStack : MonoBehaviour
 {
     //===| Serialized Interface |=======================================================================================
-    [SerializeField] private bool faceUpCards = false;
+    
     [SerializeField] private Vector3 deckOffset;
     [SerializeField] private ActionManager actionManager;
     

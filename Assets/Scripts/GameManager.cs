@@ -42,7 +42,6 @@ public partial class GameManager : MonoBehaviour
     [SerializeField] [Range(1, 3)] private float CardSize = 1; // Base size of the card
     private const float CardSizeMin = 0.5f; // Base size of the card
     private const float CardSizeMax = 2.5f; // Max size of the 
-    private bool cardSizeDirty = false; // if the card size has been changed
     [SerializeField] private HoverManager hoverManager; 
     
 
@@ -76,8 +75,9 @@ public partial class GameManager : MonoBehaviour
         DiscardDeckSpacing = new Vector3(0.00f, 0.001f, -0.05f); // spacing between cards in the discard deck
 
     // settings (config from pause menu) 
-    
- 
+
+    [SerializeField] [Header(" Pause Menu References")]
+    private PauseMenuController _pauseMenuController;
     
     
     //==| Game State |==================================================================================================|
@@ -91,7 +91,32 @@ public partial class GameManager : MonoBehaviour
     [DoNotSerialize] private List<GameObject> _discardDeck = new List<GameObject>(); // The discard deck of cards
     [DoNotSerialize] private List<PlayerCurve> _playerCurves = new List<PlayerCurve>();
     //==| Unity Functions |=============================================================================================|
+    public bool IsPaused() { return _pauseMenuController != null && _pauseMenuController.IsActivated(); }
     bool GetIsPaused() { return _isPaused; }
+
+    // Called by MenuActions.ChangePlaySpeed slider callback
+    public void SetPlaySpeed(float newSpeed)
+    {
+        if (actionManager != null) actionManager.globalTimeScale = newSpeed;
+        if (hoverActionManager != null) hoverActionManager.globalTimeScale = newSpeed;
+    }
+
+    // Called by MenuActions.ChangeCardSize slider callback
+    public void SetCardSize(float newSize)
+    {
+        CardSize = newSize;
+        Vector3 scale = Vector3.one * newSize;
+        foreach (GameObject cardObj in WholeDeck)
+        {
+            if (cardObj == null) continue;
+            Card card = cardObj.GetComponentInChildren<Card>();
+            if (card == null) continue;
+            card.baseScale = scale;
+            // Target the card child gameObject, same as hover and win-pop animations
+            ActionManager target = card.hoverActionManager != null ? card.hoverActionManager : actionManager;
+            target.AddAction(new ScaleAction(card.gameObject, scale, 0.3f, 0.0f, Easing.EaseOutCubic, false));
+        }
+    }
     
     #region UnityFunctions
     IEnumerator DelayedStart()
@@ -244,9 +269,31 @@ public partial class GameManager : MonoBehaviour
         // TODO: add pause menu functionality 
         //  * Player needs to be able to pause the game
         //  * pauses the ActionManger of game actions 
-        //  * spins up a new temp action list for pause menu actions 
-        //  * size & player count have to be configureable in there 
+        //  * size of cards and 
+
+        // Don't do crap if pause is active or we are in the middle of it transitioning in or out 
+        if (_pauseMenuController.IsActivated() || _pauseMenuController.IsAnimating())
+        {
+            actionManager.globalTimeScale = 0f;
+            hoverActionManager.globalTimeScale = 0.0f; 
+            return;
+        }
+        else
+        {
+            actionManager.globalTimeScale = _pauseMenuController.GetTimeScale();
+            hoverActionManager.globalTimeScale = _pauseMenuController.GetTimeScale();     
+        }
         
+        if (Input.GetKeyDown(KeyCode.A)) 
+        {
+            AutoPlay = !AutoPlay;
+        }
+
+        if (Input.GetKeyDown(KeyCode.D))
+        {
+            // toggle the debug text for the action list
+            //actionManager.ToggleDebugText();
+        }
         
         EndOfGameCheck(); // check if the game should end & what to do if it does
         
@@ -260,7 +307,6 @@ public partial class GameManager : MonoBehaviour
             // round over, move the play cards to the center, winner draws a card
             _roundInProgress = true; // Prevent triggering again until round is complete
             EndOfRoundLogic();
-            Debug.Log("Round Over Reached");
         }
         else if (_turn < playerCount) // computer turn, play randomly
         {
@@ -653,10 +699,6 @@ public partial class GameManager : MonoBehaviour
     
     private void AnimateCardToPositionNoBlock(GameObject card, Vector3 targetPosition, float zRotation, bool isFlipped)
     {
-        // actionManager.AddAction(new ScaleAction(
-        //     card,
-        //     new Vector3(1)));
-        
         // Create simultaneous action
         var simultaneous = new SimultaneousTransformActions(card);
         simultaneous.isBlocking = false;
@@ -691,9 +733,9 @@ public partial class GameManager : MonoBehaviour
     }
     
     #endregion
-    
-    
-    
+
+
+
     void EndOfGameCheck()
     {
         if (DrawDeck.Count == 0)
@@ -702,10 +744,27 @@ public partial class GameManager : MonoBehaviour
             // Additional end-of-game logic can be added here
             RestartGame();
         }
+
+        // if only one player has cards left, they win and the game restarts
+        int playersWithCards = 0;
+        int lastPlayerWithCards = -1;
+        for (int i = 0; i < _playerHands.Count; i++)
+        {
+            if (_playerHands[i].Count > 0)
+            {
+                playersWithCards++;
+                lastPlayerWithCards = i;
+            }
+        }
+
+        if (playersWithCards == 1)
+        {
+            Debug.Log($"Game Over: Player {lastPlayerWithCards} wins with cards left in hand!");
+            // Additional end-of-game logic can be added here
+            RestartGame();
+        }
     }
-    
-    
-    
+
     void RegisterCardToActionManager(GameObject card)
     {
         Card cardComponent = card.GetComponentInChildren<Card>();
@@ -733,67 +792,22 @@ public partial class GameManager : MonoBehaviour
     [SerializeField] GameObject DiscardFieldReference; // where the cards in the play space go when they are discarded, set in the inspector
     void EndOfRoundLogic()
     {
-        // reveal all cards, make the card that win pop up(scale up), do a small jiggle rotate left and right and then scale down down, make the player who won draw a card, then start the next round 
-        
         // Block player interaction during end of round animations
-        BlockInteraction(2.0f * playerCount); // Block for a duration based on number of players (adjust as needed)
+        BlockInteraction(2.0f);
         
-        // Step 1: Reveal all cards in the discard deck (flip face-down cards to face-up)
-        int cardsToFlip = 0;
+        // Step 1: Flip all cards face up using the FlipCard method
         for (int i = 0; i < _discardDeck.Count; i++)
         {
             GameObject cardObj = _discardDeck[i];
             Card cardComponent = cardObj.GetComponentInChildren<Card>();
             
-            Debug.Log($"Card {i} - faceUp state: {cardComponent?.faceUp}");
-            
-            // Only flip cards that are currently face-down (AI players' cards)
             if (cardComponent != null && !cardComponent.faceUp)
             {
-                Debug.Log($"Flipping card {i} to reveal it");
-                
-                // Get current rotation and add 180 to X axis (same as FlipCard method)
-                Quaternion currentRotation = cardObj.transform.rotation;
-                
-                // Add rotate action with staggered delay (non-blocking)
-                actionManager.AddAction(new RotateAction(
-                    cardObj,
-                    new Vector3(currentRotation.eulerAngles.x + 180, currentRotation.eulerAngles.y, currentRotation.eulerAngles.z),
-                    0.5f,  // Duration
-                    cardsToFlip * 0.1f,  // Stagger the reveals
-                    easeFunction: Easing.EaseOutElastic,
-                    false  // Non-blocking
-                ));
-                
-                // Update faceUp state immediately so logic knows it's been flipped
-                cardComponent.faceUp = true;
-                cardsToFlip++;
+                FlipCard(cardObj);
             }
         }
         
-        Debug.Log($"Total cards to flip: {cardsToFlip}");
-        
-        // Wait for ALL flip animations to complete
-        if (cardsToFlip > 0)
-        {
-            float totalFlipTime = 0.5f + ((cardsToFlip - 1) * 0.1f); // Duration + last stagger delay
-            actionManager.AddAction(new BlockAction(totalFlipTime));
-        }
-        
-        // Step 2-6: After reveals complete, do everything else in sequence
-        // Disable hover on all cards in discard to prevent interference
-        for (int i = 0; i < _discardDeck.Count; i++)
-        {
-            Card cardComponent = _discardDeck[i].GetComponentInChildren<Card>();
-            if (cardComponent != null)
-            {
-                cardComponent.isHoverAble = false; // Disable hover
-            }
-        }
-        
-        Debug.Log("Starting winner determination after card reveals");
-        
-        // Step 2: Determine the winning card (highest rank)
+        // Step 2: Determine the winning card (highest rank) - all cards are now face up
         int winningIndex = -1;
         int highestRank = -1;
         
@@ -803,7 +817,6 @@ public partial class GameManager : MonoBehaviour
             if (cardComponent != null)
             {
                 int rankValue = (int)cardComponent.rank;
-                Debug.Log($"Card {i}: Rank = {cardComponent.rank} ({rankValue})");
                 if (rankValue > highestRank)
                 {
                     highestRank = rankValue;
@@ -812,9 +825,7 @@ public partial class GameManager : MonoBehaviour
             }
         }
         
-        Debug.Log($"Winner: Card {winningIndex} with rank {highestRank}");
-        
-        // Step 3: Animate the winning card
+        // Step 3: Celebrate the winning card (scale up, then scale down)
         if (winningIndex >= 0)
         {
             GameObject winningCardParent = _discardDeck[winningIndex];
@@ -823,64 +834,22 @@ public partial class GameManager : MonoBehaviour
             if (winningCardComponent != null)
             {
                 GameObject winningCardGameObject = winningCardComponent.gameObject;
+                Vector3 winBase = winningCardComponent.baseScale;
                 
-                // Log current scales for both parent and child
-                Debug.Log($"BEFORE - Parent scale: {winningCardParent.transform.localScale}, Child scale: {winningCardGameObject.transform.localScale}");
-                
-                // Reset scale to 1.0 on the CHILD (the actual card visual)
-                winningCardGameObject.transform.localScale = Vector3.one;
-                Debug.Log($"AFTER reset - Child scale: {winningCardGameObject.transform.localScale}");
-                
-                Debug.Log("Scaling up winning card (child GameObject)");
                 // Pop up animation - scale up the CHILD GameObject
                 actionManager.AddAction(new ScaleAction(
-                    winningCardGameObject,  // ← Scale the CHILD, not the parent!
-                    new Vector3(1.5f, 1.5f, 1.5f),
-                    0.5f,  // Duration
-                    0.0f,  // Delay
+                    winningCardGameObject,
+                    winBase * 1.5f,
+                    0.5f,
+                    0.0f,
                     easeFunction: Easing.EaseOutBack,
-                    true   // Blocking
-                ));
-                
-                // Jiggle animation - rotate the CHILD (where the card visual is after flip)
-                // Capture the starting rotation of the CHILD after it's been flipped
-                Vector3 childStartRotation = winningCardGameObject.transform.eulerAngles;
-                Debug.Log($"Starting jiggle from CHILD rotation: {childStartRotation}");
-                
-                // Jiggle right (+15 degrees on Z)
-                actionManager.AddAction(new RotateAction(
-                    winningCardGameObject,  // Rotate the CHILD, not parent!
-                    new Vector3(childStartRotation.x, childStartRotation.y, childStartRotation.z + 15),
-                    0.15f,
-                    0.0f,
-                    easeFunction: Easing.EaseInOutCubic,
-                    true
-                ));
-                
-                // Jiggle left (-15 degrees from center)
-                actionManager.AddAction(new RotateAction(
-                    winningCardGameObject,  // Rotate the CHILD, not parent!
-                    new Vector3(childStartRotation.x, childStartRotation.y, childStartRotation.z - 15),
-                    0.15f,
-                    0.0f,
-                    easeFunction: Easing.EaseInOutCubic,
-                    true
-                ));
-                
-                // Return to center
-                actionManager.AddAction(new RotateAction(
-                    winningCardGameObject,  // Rotate the CHILD, not parent!
-                    childStartRotation,  // Back to flipped rotation
-                    0.15f,
-                    0.0f,
-                    easeFunction: Easing.EaseInOutCubic,
                     true
                 ));
                 
                 // Scale back down on the CHILD GameObject
                 actionManager.AddAction(new ScaleAction(
-                    winningCardGameObject,  // ← Scale the CHILD back down!
-                    new Vector3(1.0f, 1.0f, 1.0f),
+                    winningCardGameObject,
+                    winBase,
                     0.5f,
                     0.0f,
                     easeFunction: Easing.EaseInBack,
@@ -889,7 +858,7 @@ public partial class GameManager : MonoBehaviour
             }
         }
         
-        // Step 4: Move all cards to the discard field
+        // Step 4: Move all cards to the discard field (assuming all are face up)
         if (DiscardFieldReference != null)
         {
             for (int i = 0; i < _discardDeck.Count; i++)
@@ -898,8 +867,8 @@ public partial class GameManager : MonoBehaviour
                 actionManager.AddAction(new TranslateAction(
                     _discardDeck[i],
                     discardPosition,
-                    0.7f,  // Duration
-                    i * 0.05f,  // Slight stagger
+                    0.7f,
+                    i * 0.05f,
                     easeFunction: Easing.EaseInOutCubic,
                     false
                 ));
@@ -910,24 +879,26 @@ public partial class GameManager : MonoBehaviour
         // Step 5: Winner draws a card from the draw deck
         if (winningIndex >= 0 && DrawDeck.Count > 0)
         {
-            int winningPlayerIndex = winningIndex; // The index matches the player who played that card
+            int winningPlayerIndex = winningIndex;
             GameObject drawnCard = DrawDeck[DrawDeck.Count - 1];
             DrawDeck.RemoveAt(DrawDeck.Count - 1);
             
-            // Get the position for the new card in the winner's hand
             PlayerCurve winnerCurve = _playerCurves[winningPlayerIndex];
             (Vector3, float)[] handPositions = winnerCurve.CalculateCardPositions(_playerHands[winningPlayerIndex].Count + 1);
             
-            // Animate card to winner's hand
             Card drawnCardComponent = drawnCard.GetComponentInChildren<Card>();
-            bool shouldBeFlipped = (winningPlayerIndex != 0); // Player 0 sees face up, others face down
+            bool shouldBeFlipped = (winningPlayerIndex != 0);
+            
+            if (drawnCardComponent != null)
+            {
+                drawnCardComponent.faceUp = !shouldBeFlipped;
+            }
             
             AnimateCardToPosition(drawnCard, handPositions[handPositions.Length - 1].Item1, 
                                 handPositions[handPositions.Length - 1].Item2, shouldBeFlipped);
             
             _playerHands[winningPlayerIndex].Add(drawnCard);
             
-            // Realign the winner's hand
             actionManager.AddAction(new CallBackAction(0.5f, false, () => {
                 AlignHandCards(winningPlayerIndex);
             }));
@@ -936,9 +907,9 @@ public partial class GameManager : MonoBehaviour
         // Step 6: Clear the discard deck and reset for next round
         actionManager.AddAction(new CallBackAction(1.0f, false, () => {
             _discardDeck.Clear();
-            _turn = 0; // Reset to first player
-            _lastExecutedTurn = -1; // Reset turn tracker
-            _roundInProgress = false; // Allow next round to start
+            _turn = 0;
+            _lastExecutedTurn = -1;
+            _roundInProgress = false;
         }));
     }
   

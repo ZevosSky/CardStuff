@@ -573,6 +573,109 @@ public class SimultaneousTransformActions : GameObjectAction
 } // end of SimultaneousTransformActions
 
 
+/// <summary>
+/// Fades a GameObject in or out by lerping alpha.
+/// Supports CanvasGroup (UI panels), SpriteRenderer (cards/sprites), and UnityEngine.UI.Image.
+/// If the GameObject has none of these, an error is logged.
+/// </summary>
+public class FadeAction : GameObjectAction
+{
+    private float targetAlpha;
+    private float startAlpha;
+    private EaseFunction easeFunction;
+
+    // Cached components — only one will be non-null
+    private CanvasGroup canvasGroup;
+    private SpriteRenderer spriteRenderer;
+    private UnityEngine.UI.Image image;
+
+    public FadeAction(GameObject entity,
+                      float targetAlpha,
+                      float duration,
+                      float delay = 0f,
+                      EaseFunction easeFunction = null,
+                      bool blocking = true)
+        : base(entity)
+    {
+        this.targetAlpha  = Mathf.Clamp01(targetAlpha);
+        this.duration     = duration;
+        this.delay        = delay;
+        this.isBlocking   = blocking;
+        this.easeFunction = easeFunction ?? Easing.Linear;
+
+        // Cache whichever component exists — search children too for nested UI (e.g. TMP buttons)
+        // Priority: CanvasGroup > Image > SpriteRenderer
+        canvasGroup    = entity.GetComponent<CanvasGroup>()    ?? entity.GetComponentInChildren<CanvasGroup>();
+        image          = entity.GetComponent<UnityEngine.UI.Image>() ?? entity.GetComponentInChildren<UnityEngine.UI.Image>();
+        spriteRenderer = entity.GetComponent<SpriteRenderer>() ?? entity.GetComponentInChildren<SpriteRenderer>();
+
+        if (canvasGroup == null && image == null && spriteRenderer == null)
+            Debug.LogError($"FadeAction: {entity.name} has no CanvasGroup, Image, or SpriteRenderer to fade (searched children too).");
+    }
+
+    public override void Start()
+    {
+        base.Start();
+        startAlpha = GetCurrentAlpha();
+
+        if (!isPartOfSimultaneous)
+            onComplete = () => SetAlpha(targetAlpha);
+    }
+
+    protected override void OnDelayComplete()
+    {
+        base.OnDelayComplete();
+        startAlpha = GetCurrentAlpha(); // re-capture in case something changed during delay
+    }
+
+    public override void Update()
+    {
+        base.Update();
+        if (!hasStarted) return;
+
+        float t = Mathf.Clamp01(elapsed / duration);
+
+        if (t >= 1f)
+        {
+            SetAlpha(targetAlpha);
+            return;
+        }
+
+        SetAlpha(Mathf.LerpUnclamped(startAlpha, targetAlpha, easeFunction(t)));
+    }
+
+    private float GetCurrentAlpha()
+    {
+        if (canvasGroup    != null) return canvasGroup.alpha;
+        if (image          != null) return image.color.a;
+        if (spriteRenderer != null) return spriteRenderer.color.a;
+        return 1f;
+    }
+
+    private void SetAlpha(float alpha)
+    {
+        if (canvasGroup != null)
+        {
+            canvasGroup.alpha = alpha;
+            return;
+        }
+        if (image != null)
+        {
+            Color c = image.color;
+            c.a = alpha;
+            image.color = c;
+            return;
+        }
+        if (spriteRenderer != null)
+        {
+            Color c = spriteRenderer.color;
+            c.a = alpha;
+            spriteRenderer.color = c;
+        }
+    }
+} // end of FadeAction
+
+
 
 
 
@@ -598,6 +701,14 @@ public class ActionManager : MonoBehaviour
     
     [SerializeField] private TextMeshProUGUI debugText; // Debug text for showing active actions  
     [SerializeField] private bool debugMode = false;
+
+    void ToggleDebugText()
+    {
+        debugMode = !debugMode;
+        if (debugText == null) Debug.LogError("Debug Text is not assigned in the inspector!");
+        else debugText.gameObject.SetActive(debugMode);
+        
+    }
 
    void Update()
     {

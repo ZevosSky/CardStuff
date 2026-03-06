@@ -16,8 +16,7 @@ public class HoverManager : MonoBehaviour
     {
         if (gameManager == null) return;
         
-
-        if (gameManager._isPaused || !gameManager._allowInteraction)
+        if (!gameManager._allowInteraction || gameManager.IsPaused())
         {
             ForceUnhover();
             return;

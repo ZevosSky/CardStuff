@@ -39,7 +39,8 @@ public class Card : MonoBehaviour
     [HideInInspector] public ActionManager actionManager; // reference to action manager in play space 
     [HideInInspector] public ActionManager hoverActionManager; // reference to hover-specific action manager
     [HideInInspector] public bool isHoverAble; // control if hover does anything
-    [HideInInspector] public bool isHovered; 
+    [HideInInspector] public bool isHovered;
+    [HideInInspector] public Vector3 baseScale = Vector3.one; // set by GameManager when card size changes
     [HideInInspector] public GameManager gameManager;
     
     // Get the SpriteRenderers for the front and back of the card
@@ -66,47 +67,35 @@ public class Card : MonoBehaviour
     
     public void HoverEnter()
     {
-        // Check if hovering is enabled for this card
         if (!isHoverAble) return;
-        
-        // Use hover action manager if available, fall back to main action manager
         ActionManager targetManager = hoverActionManager != null ? hoverActionManager : actionManager;
-        
         if (targetManager == null) return;
-        
-      
+
         ScaleAction sa = new ScaleAction(this.gameObject, 
-            (new Vector3(1.4f, 1.4f, 1.4f)),
+            baseScale * 1.4f,
             0.5f,
             0.0f, 
             easeFunction: Easing.EaseOutElastic,
             false);
-    
         targetManager.AddAction(sa);
         isHovered = true;
     }
 
     public void HoverExit()
     {
-        // Check if hovering is enabled for this card
         if (!isHoverAble) return;
-        
-        // Use hover action manager if available, fall back to main action manager
         ActionManager targetManager = hoverActionManager != null ? hoverActionManager : actionManager;
-        
         if (targetManager == null) return;
-        
+
         isHovered = false;
-        
         ScaleAction sa = new ScaleAction(this.gameObject, 
-            (new Vector3(1.0f, 1.0f, 1.0f)),
+            baseScale,
             0.5f,
             0.0f, 
             easeFunction: Easing.EaseOutElastic,
             false
         );
         targetManager.AddAction(sa);
-        
     }
     
     void Update()
