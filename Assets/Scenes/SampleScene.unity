@@ -404,6 +404,7 @@ GameObject:
   - component: {fileID: 187580696}
   - component: {fileID: 187580699}
   - component: {fileID: 187580700}
+  - component: {fileID: 187580701}
   m_Layer: 0
   m_Name: GameManger
   m_TagString: Untagged
@@ -443,7 +444,7 @@ MonoBehaviour:
   cardPrefab: {fileID: 2178705558552301268, guid: 5b62dc72d6e517d4696f889cffc09419, type: 3}
   playerCount: 4
   CardSize: 1
-  hoverManager: {fileID: 0}
+  hoverManager: {fileID: 187580699}
   DrawDeckLocationReference: {fileID: 1178169789}
   DiscardDeckLocationReference: {fileID: 352276157}
   playSpace: {fileID: 1054705960}
@@ -451,11 +452,14 @@ MonoBehaviour:
   DrawDeckSpacing: {x: 0.003, y: 0.003, z: -0.05}
   DiscardDeckSpacing: {x: 0, y: 0.001, z: -0.05}
   _pauseMenuController: {fileID: 1448176329}
+  _menuActions: {fileID: 1448176330}
   _turn: 0
   _isPaused: 0
   _allowInteraction: 0
+  _telemetry: {fileID: 187580701}
   DebugSphere: {fileID: 736677113}
   AutoPlay: 0
+  stressTest: 0
   DiscardFieldReference: {fileID: 2002163310}
 --- !u!4 &187580698
 Transform:
@@ -505,6 +509,19 @@ MonoBehaviour:
   globalTimeScale: 1
   debugText: {fileID: 0}
   debugMode: 0
+--- !u!114 &187580701
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 187580694}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b824179740d9fa545b04bf30d2047b66, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  fpsLogingIntervalSecs: 10
 --- !u!1 &238529715
 GameObject:
   m_ObjectHideFlags: 0

@@ -1,7 +1,8 @@
 //==============================================================================
 // @Author: Gary Yang
 // @File: GameManager.cs
-// @brief: Game Logic for Rummy game, includes deck and player setup
+// @brief: Game Logic for highest card wins game, includes deck and player setup
+//         This code is vile, but it makes a good demo of my action list system 
 // @copyright DigiPen(C) 2025
 //==============================================================================
 
@@ -79,6 +80,9 @@ public partial class GameManager : MonoBehaviour
     [SerializeField] [Header(" Pause Menu References")]
     private PauseMenuController _pauseMenuController;
     
+    [SerializeField]
+    private MenuActions _menuActions;
+    
     
     //==| Game State |==================================================================================================|
     [DoNotSerialize] public int _turn;
@@ -90,7 +94,10 @@ public partial class GameManager : MonoBehaviour
     [DoNotSerialize] private List<GameObject> _drawDeck = new List<GameObject>(); // The draw deck of cards
     [DoNotSerialize] private List<GameObject> _discardDeck = new List<GameObject>(); // The discard deck of cards
     [DoNotSerialize] private List<PlayerCurve> _playerCurves = new List<PlayerCurve>();
-    //==| Unity Functions |=============================================================================================|
+    //==| Telemetry |===
+    [SerializeField] private Telemetry _telemetry;
+    private int _roundCount = 0; // counts how many rounds theres been
+    
     public bool IsPaused() { return _pauseMenuController != null && _pauseMenuController.IsActivated(); }
     bool GetIsPaused() { return _isPaused; }
 
@@ -118,7 +125,6 @@ public partial class GameManager : MonoBehaviour
         }
     }
     
-    #region UnityFunctions
     IEnumerator DelayedStart()
     {
         yield return new WaitForSeconds(1.1f);  // Small delay
@@ -129,6 +135,8 @@ public partial class GameManager : MonoBehaviour
     
         // Continue with your card dealing code
     }
+    #region UnityFunctions
+    //==| Unity Functions |=============================================================================================|
     void Start()
     {
         #region Examples_I_Made
@@ -203,7 +211,7 @@ public partial class GameManager : MonoBehaviour
         #endregion
         
         // * * * Game Setup * * * \\
-        
+        _roundCount = 0;
         // Spawn a deck of cards, debug show all the cards in a spread
         // Step 1: Spawn and prepare deck
         SpawnDeck();
@@ -258,19 +266,18 @@ public partial class GameManager : MonoBehaviour
         
         
         
-    }
+    } // end of Start()
 
     // temp testing hand debug game objects, remove in final build 
     [SerializeField] private GameObject DebugSphere;
     [SerializeField] private bool AutoPlay;
+    [SerializeField] private bool stressTest;
+    private float randomAccumulator = 0f;
+    private Coroutine stressTestCoroutine = null;
     
     void Update()
     {
-        // TODO: add pause menu functionality 
-        //  * Player needs to be able to pause the game
-        //  * pauses the ActionManger of game actions 
-        //  * size of cards and 
-
+        
         // Don't do crap if pause is active or we are in the middle of it transitioning in or out 
         if (_pauseMenuController.IsActivated() || _pauseMenuController.IsAnimating())
         {
@@ -281,7 +288,7 @@ public partial class GameManager : MonoBehaviour
         else
         {
             actionManager.globalTimeScale = _pauseMenuController.GetTimeScale();
-            hoverActionManager.globalTimeScale = _pauseMenuController.GetTimeScale();     
+            hoverActionManager.globalTimeScale = _pauseMenuController.GetTimeScale();
         }
         
         if (Input.GetKeyDown(KeyCode.A)) 
@@ -292,7 +299,37 @@ public partial class GameManager : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.D))
         {
             // toggle the debug text for the action list
-            //actionManager.ToggleDebugText();
+            actionManager.ToggleDebugText();
+        }
+
+        if (Input.GetKeyDown(KeyCode.T))
+        {
+            // Toggle stress test mode
+            stressTest = !stressTest;
+            
+            if (stressTest)
+            {
+                Debug.Log("Stress Test Mode ENABLED - Auto play and random menu interactions started");
+                AutoPlay = true; // Enable autoplay during stress test
+                
+                // Start the stress test coroutine
+                if (stressTestCoroutine != null)
+                {
+                    StopCoroutine(stressTestCoroutine);
+                }
+                stressTestCoroutine = StartCoroutine(StressTestRoutine());
+            }
+            else
+            {
+                Debug.Log("Stress Test Mode DISABLED");
+                
+                // Stop the stress test coroutine
+                if (stressTestCoroutine != null)
+                {
+                    StopCoroutine(stressTestCoroutine);
+                    stressTestCoroutine = null;
+                }
+            }
         }
         
         EndOfGameCheck(); // check if the game should end & what to do if it does
@@ -316,14 +353,110 @@ public partial class GameManager : MonoBehaviour
 
 
     }
+    
+    #region StressTestFunctions
+    
+    /// <summary>
+    /// Coroutine that randomly toggles the pause menu and interacts with it during stress testing
+    /// </summary>
+    private IEnumerator StressTestRoutine()
+    {
+        while (stressTest)
+        {
+            // Wait a random interval between 4-6 seconds
+            float waitTime = UnityEngine.Random.Range(4f, 6f);
+            yield return new WaitForSeconds(waitTime);
+            
+            // Only proceed if we're not already in an animation
+            if (!_pauseMenuController.IsAnimating())
+            {
+                // If pause menu is not active, activate it
+                if (!_pauseMenuController.IsActivated())
+                {
+                    _pauseMenuController.Activate();
+                    Debug.Log("[Stress Test] Opened pause menu");
+                }
+                else
+                {
+                    // Menu is active, do a random action
+                    PerformRandomMenuAction();
+                    
+                    // 50% chance to close the menu after the action
+                    if (UnityEngine.Random.value > 0.5f)
+                    {
+                        yield return new WaitForSeconds(UnityEngine.Random.Range(0.5f, 2f));
+                        if (!_pauseMenuController.IsAnimating())
+                        {
+                            _pauseMenuController.Deactivate();
+                            Debug.Log("[Stress Test] Closed pause menu");
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Randomly performs an action on the pause menu (change slider or click button)
+    /// Excludes the Quit button to prevent accidentally closing the application
+    /// </summary>
+    private void PerformRandomMenuAction()
+    {
+        if (_menuActions == null)
+        {
+            Debug.LogWarning("[Stress Test] MenuActions reference not set");
+            return;
+        }
+        
+        // Random choice: 0 = change time scale, 1 = change card size, 2 = click resume
+        int actionChoice = UnityEngine.Random.Range(0, 3);
+        
+        switch (actionChoice)
+        {
+            case 0:
+                // Randomly change time scale slider (0.1 to 2.0)
+                float newTimeScale = UnityEngine.Random.Range(0.1f, 2.0f);
+                _menuActions.ChangePlaySpeed(newTimeScale);
+                Debug.Log($"[Stress Test] Changed time scale to {newTimeScale:F2}");
+                break;
+                
+            case 1:
+                // Randomly change card size slider (0.5 to 2.5 based on CardSizeMin/Max)
+                float newCardSize = UnityEngine.Random.Range(CardSizeMin, CardSizeMax);
+                _menuActions.ChangeCardSize(newCardSize);
+                Debug.Log($"[Stress Test] Changed card size to {newCardSize:F2}");
+                break;
+                
+            case 2:
+                // Click resume button (closes the pause menu)
+                _pauseMenuController.Resume();
+                Debug.Log("[Stress Test] Clicked Resume button");
+                break;
+        }
+    }
+    
+    #endregion // StressTestFunctions
+    
     #endregion // UnityFunctions
 
     void ClearGame()
     {
+        // Destroy all card GameObjects
         for (int i = 0; i < WholeDeck.Count; ++i) { Destroy(WholeDeck[i]); }
         WholeDeck.Clear();
         DrawDeck.Clear();
         SwapDeck.Clear();
+        
+        // Clear all lists that reference cards to prevent accessing destroyed objects
+        _playerHands.Clear();
+        _playerCurves.Clear();
+        _discardDeck.Clear();
+        playSpaceCards.Clear();
+        
+        // Reset game state
+        _turn = 0;
+        _lastExecutedTurn = -1;
+        _roundInProgress = false;
     }
 
 
@@ -741,7 +874,7 @@ public partial class GameManager : MonoBehaviour
         if (DrawDeck.Count == 0)
         {
             Debug.Log("Game Over: Draw Deck is empty!");
-            // Additional end-of-game logic can be added here
+            if (_telemetry != null) _telemetry.LogRoundEndData(-1, -1);
             RestartGame();
         }
 
@@ -760,7 +893,8 @@ public partial class GameManager : MonoBehaviour
         if (playersWithCards == 1)
         {
             Debug.Log($"Game Over: Player {lastPlayerWithCards} wins with cards left in hand!");
-            // Additional end-of-game logic can be added here
+            if (_telemetry != null) _telemetry.LogRoundEndData(lastPlayerWithCards, _roundCount);
+            
             RestartGame();
         }
     }
@@ -792,6 +926,7 @@ public partial class GameManager : MonoBehaviour
     [SerializeField] GameObject DiscardFieldReference; // where the cards in the play space go when they are discarded, set in the inspector
     void EndOfRoundLogic()
     {
+        ++_roundCount;
         // Block player interaction during end of round animations
         BlockInteraction(2.0f);
         
@@ -799,6 +934,8 @@ public partial class GameManager : MonoBehaviour
         for (int i = 0; i < _discardDeck.Count; i++)
         {
             GameObject cardObj = _discardDeck[i];
+            if (cardObj == null) continue; // Skip destroyed cards
+            
             Card cardComponent = cardObj.GetComponentInChildren<Card>();
             
             if (cardComponent != null && !cardComponent.faceUp)
@@ -813,6 +950,8 @@ public partial class GameManager : MonoBehaviour
         
         for (int i = 0; i < _discardDeck.Count; i++)
         {
+            if (_discardDeck[i] == null) continue; // Skip destroyed cards
+            
             Card cardComponent = _discardDeck[i].GetComponentInChildren<Card>();
             if (cardComponent != null)
             {

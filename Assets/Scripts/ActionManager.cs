@@ -139,6 +139,7 @@ public abstract class GameObjectAction : ActionBase
     }
     
     public GameObject GetTargetObject() => targetObject;
+    public bool IsTargetAlive() => targetObject != null; // null-check works for destroyed Unity objects
     
     public override void Start()
     {
@@ -702,7 +703,7 @@ public class ActionManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI debugText; // Debug text for showing active actions  
     [SerializeField] private bool debugMode = false;
 
-    void ToggleDebugText()
+    public void ToggleDebugText()
     {
         debugMode = !debugMode;
         if (debugText == null) Debug.LogError("Debug Text is not assigned in the inspector!");
@@ -720,6 +721,14 @@ public class ActionManager : MonoBehaviour
         for (int i = activeActions.Count - 1; i >= 0; i--) 
         {
             var action = activeActions[i];
+            
+            // If the target GameObject was destroyed, discard the action cleanly
+            if (action is GameObjectAction goa && !goa.IsTargetAlive())
+            {
+                activeActions.RemoveAt(i);
+                if (action.isBlocking) islistBlocked = false;
+                continue;
+            }
             
             if (debugMode) debugText.text += action.GetActionState() + "\n";
         
@@ -740,6 +749,16 @@ public class ActionManager : MonoBehaviour
         // Keep adding actions until we hit a blocking one or empty the queue
         while (!islistBlocked && actionQueue.Count > 0)
         {
+            ActionBase next = actionQueue.Peek();
+            
+            // Discard any queued actions whose target has already been destroyed
+            if (next is GameObjectAction goaQueued && !goaQueued.IsTargetAlive())
+            {
+                actionQueue.Dequeue();
+                if (next.isBlocking) islistBlocked = false; // don't let a dead blocking action stall the queue
+                continue;
+            }
+            
             ActionBase action = actionQueue.Dequeue();
             activeActions.Add(action);
             action.SetManager(this);

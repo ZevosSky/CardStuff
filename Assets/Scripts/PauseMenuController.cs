@@ -144,6 +144,20 @@ public class PauseMenuController : MonoBehaviour
         if (_isAnimating || !_activated) return;
         DeactivatePauseMenu();
     }
+    
+    // Public method to programmatically activate pause menu (for stress testing)
+    public void Activate()
+    {
+        if (_isAnimating || _activated) return;
+        ActivatePauseMenu();
+    }
+    
+    // Public method to programmatically deactivate pause menu (for stress testing)
+    public void Deactivate()
+    {
+        if (_isAnimating || !_activated) return;
+        DeactivatePauseMenu();
+    }
 
 #if UNITY_EDITOR
     private void OnDrawGizmos()
